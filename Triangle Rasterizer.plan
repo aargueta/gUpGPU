@@ -1,0 +1,6 @@
+Triangle Rasterizer
+1. Calculate bounding box 						[X]
+2. Calculate Bayesian Coordinates per fragment	[ ]
+3. Bounds check fragment						[ ]
+4. Calculate fragment attribute from vertices	[ ]
+5. Hand off fragment to pixel shader			[ ]
