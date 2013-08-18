@@ -59,7 +59,7 @@ module frag_iterator_tb;
 	initial begin
 		// Initialize Inputs
 		clk = 0;
-		rst = 0;
+		rst = 1;
 		nd = 0;
 		us_rfd = 0;
 		fp_min_x = 0;
@@ -72,8 +72,27 @@ module frag_iterator_tb;
 		#100;
         
 		// Add stimulus here
+		rst = 1;
+		repeat(8)
+			#10 clk = ~clk;
+		rst = 0;
 
+		forever 
+			#10 clk = ~clk;
 	end
       
+    initial begin
+    	#180;
+    	nd = 1;
+		fp_min_x = 16'h0000; // 0.0
+		fp_max_x = 16'h3C00; // 1.0
+		fp_min_y = 16'h0000; // 0.0
+		fp_max_y = 16'h3C00; // 1.0
+		ds_rfd = 1;
+		#10;
+		nd = 0;
+		#1000;
+		$finish;
+    end
 endmodule
 
