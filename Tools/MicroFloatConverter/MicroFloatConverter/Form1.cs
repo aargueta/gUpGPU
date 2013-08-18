@@ -81,6 +81,21 @@ namespace MicroFloatConverter {
             
         }
 
+        private void hex2Dec_Click(object sender, EventArgs e) {
+            if (hexIn.Text.Length > 4) {
+                MessageBox.Show("Input too long for 16-bit float.");
+                return;
+            }
+            int hexVal = Convert.ToInt32(hexIn.Text, 16);
+            bool sign = (hexVal & 0x8000) > 0;
+            int exp = (hexVal & 0x7C00) >> 10;
+            double mant = ((hexVal & 0x03FF) | 0x0400) / Math.Pow(2.0f, 10);
+            double fVal = mant * Math.Pow(2.0f, exp - 15);
+            if (sign)
+                fVal *= -1;
+            decOut.Text = fVal.ToString();
+        }
+
 
        
     }

@@ -35,7 +35,11 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
-            this.convBtn = new System.Windows.Forms.Button();
+            this.dec2Hex = new System.Windows.Forms.Button();
+            this.hex2Dec = new System.Windows.Forms.Button();
+            this.decOut = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
+            this.hexIn = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // decBox
@@ -143,22 +147,60 @@
             this.label4.TabIndex = 11;
             this.label4.Text = "Mantissa";
             // 
-            // convBtn
+            // dec2Hex
             // 
-            this.convBtn.Location = new System.Drawing.Point(67, 167);
-            this.convBtn.Name = "convBtn";
-            this.convBtn.Size = new System.Drawing.Size(75, 23);
-            this.convBtn.TabIndex = 1;
-            this.convBtn.Text = "Convert";
-            this.convBtn.UseVisualStyleBackColor = true;
-            this.convBtn.Click += new System.EventHandler(this.convBtn_Click);
+            this.dec2Hex.Location = new System.Drawing.Point(67, 167);
+            this.dec2Hex.Name = "dec2Hex";
+            this.dec2Hex.Size = new System.Drawing.Size(75, 23);
+            this.dec2Hex.TabIndex = 1;
+            this.dec2Hex.Text = "Dec -> Hex";
+            this.dec2Hex.UseVisualStyleBackColor = true;
+            this.dec2Hex.Click += new System.EventHandler(this.convBtn_Click);
+            // 
+            // hex2Dec
+            // 
+            this.hex2Dec.Location = new System.Drawing.Point(261, 167);
+            this.hex2Dec.Name = "hex2Dec";
+            this.hex2Dec.Size = new System.Drawing.Size(75, 23);
+            this.hex2Dec.TabIndex = 14;
+            this.hex2Dec.Text = "Hex -> Dec";
+            this.hex2Dec.UseVisualStyleBackColor = true;
+            this.hex2Dec.Click += new System.EventHandler(this.hex2Dec_Click);
+            // 
+            // decOut
+            // 
+            this.decOut.Location = new System.Drawing.Point(248, 141);
+            this.decOut.Name = "decOut";
+            this.decOut.ReadOnly = true;
+            this.decOut.Size = new System.Drawing.Size(101, 20);
+            this.decOut.TabIndex = 15;
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(245, 14);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(26, 13);
+            this.label5.TabIndex = 13;
+            this.label5.Text = "Hex";
+            // 
+            // hexIn
+            // 
+            this.hexIn.Location = new System.Drawing.Point(248, 30);
+            this.hexIn.Name = "hexIn";
+            this.hexIn.Size = new System.Drawing.Size(101, 20);
+            this.hexIn.TabIndex = 12;
             // 
             // ConverterForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(206, 202);
-            this.Controls.Add(this.convBtn);
+            this.ClientSize = new System.Drawing.Size(382, 202);
+            this.Controls.Add(this.hex2Dec);
+            this.Controls.Add(this.decOut);
+            this.Controls.Add(this.label5);
+            this.Controls.Add(this.hexIn);
+            this.Controls.Add(this.dec2Hex);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
@@ -171,8 +213,10 @@
             this.Controls.Add(this.signHex);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.decBox);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.KeyPreview = true;
             this.Name = "ConverterForm";
+            this.ShowIcon = false;
             this.Text = "uFloat Converter";
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -193,7 +237,11 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.Button convBtn;
+        private System.Windows.Forms.Button dec2Hex;
+        private System.Windows.Forms.Button hex2Dec;
+        private System.Windows.Forms.TextBox decOut;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.TextBox hexIn;
     }
 }
 
