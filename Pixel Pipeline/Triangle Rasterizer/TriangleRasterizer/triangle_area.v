@@ -29,7 +29,7 @@ module triangle_area(
 	output rdy;		// Downstream ready for data
 	output [15:0] area;
 
-	localparam HALF = 16'b0011100000000000; // Exp = 14-15=-1, Mantissa = (1) } = 2^-1
+	localparam HALF = 16'h3800; // 0.5f
 
 	wire [15:0] ab_x;
 	wire [15:0] ab_y;
