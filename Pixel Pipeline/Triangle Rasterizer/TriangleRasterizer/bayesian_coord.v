@@ -121,6 +121,7 @@ module bayesian_coord(
 	end
 
 	// Sum all areas
+	wire [15:0] sum_ab, sum_abc, u, v, w;
 	fp_add_micro add_ab (
 		.a(area_a),
 		.b(area_b),
