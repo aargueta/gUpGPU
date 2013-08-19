@@ -84,14 +84,14 @@ module frag_iterator_tb;
     initial begin
     	#180;
     	nd = 1;
-		fp_min_x = 16'h0000; // 0.0
-		fp_max_x = 16'h3C00; // 1.0
-		fp_min_y = 16'h0000; // 0.0
-		fp_max_y = 16'h3C00; // 1.0
+		fp_min_x = 16'h0000; // 0.0 // 16'hB547;// -.3333 	
+		fp_max_x = 16'h3C00; // 1.0 // 16'h3428;// 	.26		
+		fp_min_y = 16'h0000; // 0.0 // 16'hBB33;// -.9 		
+		fp_max_y = 16'h3C00; // 1.0 // 16'hBA66;// -.8		
 		ds_rfd = 1;
-		#10;
+		#20;
 		nd = 0;
-		#1000;
+		#1000000;
 		$finish;
     end
 endmodule

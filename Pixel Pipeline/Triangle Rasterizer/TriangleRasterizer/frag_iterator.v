@@ -1,6 +1,9 @@
-
+`define FP_NEG_ONE 16'hBC00
 `define FP_640TH 16'h1666
+`define FP_2_640TH 16'h1A66
+`define FP_3_640TH 16'h1CCC
 `define FP_480TH 16'h1844
+
 module frag_iterator(
 	clk,
 	rst,
@@ -40,12 +43,29 @@ module frag_iterator(
 
 	wire x_inbounds, y_inbounds, box_done;
 
+	//  Purge logic to make sure the adders don't take bad data
+	reg [1:0] purge;
+	wire purge_done = (purge == 2'b11);
 	always @(posedge clk)begin
+		if(rst)
+			purge <= 2'b00;
+		else if (nd)
+			purge <= 2'b01;
+		else if(purge == 2'b01)
+			purge <= 2'b10;
+		else if(purge == 2'b10)
+			purge <= 2'b11;
+		else 
+			purge <= purge;
+	end
+
+	
+	always @(*)begin
 		if(rst)begin
-			fp_x 	<= 0;
-			fp_y 	<= 0;
+			fp_x 	<= fp_min_x;
+			fp_y 	<= fp_min_y;
 		end else begin
-			if(nd)begin
+			if(~purge_done)begin
 				fp_x 	<= fp_min_x;
 				fp_y 	<= fp_min_y;
 			end else if(x_inbounds)begin
@@ -74,7 +94,7 @@ module frag_iterator(
 	fp_add_micro incr_x (
 		.clk(clk),
 		.sclr(rst),
-		.operation_nd(1'b1),
+		.operation_nd(purge_done),
 		.operation_rfd(incr_x_rfd),
 		.a(fp_x),
 		.b(`FP_640TH),
@@ -86,10 +106,10 @@ module frag_iterator(
 	fp_add_micro incr_y (
 		.clk(clk),
 		.sclr(rst),
-		.operation_nd(1'b1),
+		.operation_nd(purge_done),
 		.operation_rfd(incr_y_rfd),
 		.a(fp_y),
-		.b(`FP_640TH),
+		.b(`FP_480TH),
 		.ce(1'b1),//y_bound_rfd),
 		.result(next_y),
 		.rdy(incr_y_rdy)
