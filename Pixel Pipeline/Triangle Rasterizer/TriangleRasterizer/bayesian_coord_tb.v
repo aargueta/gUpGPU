@@ -69,7 +69,7 @@ module bayesian_coord_tb;
 	initial begin
 		// Initialize Inputs
 		clk = 0;
-		rst = 0;
+		rst = 1;
 		nd = 0;
 		v1_x = 0;
 		v1_y = 0;
@@ -83,10 +83,46 @@ module bayesian_coord_tb;
 
 		// Wait 100 ns for global reset to finish
 		#100;
-        
-		// Add stimulus here
 
+		repeat(4)
+			#5 clk = ~clk;
+
+		rst = 0;
+
+		forever 
+        	#5 clk = ~clk;
 	end
-      
+    
+    initial begin
+    	#120;
+    	ds_rfd = 1'b1;
+    	#20;
+    	nd = 1'b1;
+		v1_x = 16'h0000; // 0.0
+		v1_y = 16'h3C00; // 1.0
+		v2_x = 16'h0000; // 0.0
+		v2_y = 16'h0000; // 0.0
+		v3_x = 16'h3C00; // 1.0
+		v3_y = 16'h0000; // 0.0
+		p_x = 16'h3800; // 0.5
+		p_y = 16'h3400; // 0.25
+    	#20;
+    	nd = 1'b0;
+    	#20;
+    	nd = 1'b1;
+		v1_x = 16'h0000; // 0.0
+		v1_y = 16'h3C00; // 1.0
+		v2_x = 16'h0000; // 0.0
+		v2_y = 16'h0000; // 0.0
+		v3_x = 16'h3C00; // 1.0
+		v3_y = 16'h0000; // 0.0
+		p_x = 16'hB800; // -0.5
+		p_y = 16'h3400; // 0.25
+    	#20;
+    	nd = 1'b0;
+
+		#200;
+		$finish;
+    end
 endmodule
 
