@@ -49,7 +49,7 @@ module triangle_area(
 
 	wire ab_x_rdy;
 	wire ab_y_rdy;
-	wire ax_x_rdy;
+	wire ap_x_rdy;
 	wire ap_y_rdy;
 	wire mul_xy_rdy;
 	wire mul_yx_rdy;
@@ -63,7 +63,7 @@ module triangle_area(
 		.sclr(rst),
 		.rdy(ab_x_rdy),
 		.a(a_x),
-		.b(b_y),
+		.b(b_x),
 		.result(ab_x)
 	);
 
