@@ -96,7 +96,7 @@ module bayesian_coord_tb;
     initial begin
     	#120;
     	ds_rfd = 1'b1;
-    	#20;
+    	#80;
     	nd = 1'b1;
 		v1_x = 16'h0000; // 0.0
 		v1_y = 16'h3C00; // 1.0
@@ -106,9 +106,9 @@ module bayesian_coord_tb;
 		v3_y = 16'h0000; // 0.0
 		p_x = 16'h3800; // 0.5
 		p_y = 16'h3400; // 0.25
-    	#20;
+    	#10;
     	nd = 1'b0;
-    	#20;
+    	#10;
     	nd = 1'b1;
 		v1_x = 16'h0000; // 0.0
 		v1_y = 16'h3C00; // 1.0
@@ -118,7 +118,7 @@ module bayesian_coord_tb;
 		v3_y = 16'h0000; // 0.0
 		p_x = 16'hB800; // -0.5
 		p_y = 16'h3400; // 0.25
-    	#20;
+    	#10;
     	nd = 1'b0;
 
 		#200;

@@ -85,7 +85,7 @@ module bayesian_coord(
 		.b_y(v3_y),
 		.p_x(p_x),	
 		.p_y(p_y),
-		.ds_rfd(sum_ab_rdy),
+		.ds_rfd(sum_ab_rfd),
 		.rdy(ta_b_rdy),
 		.area(area_b)
 	);
@@ -101,30 +101,33 @@ module bayesian_coord(
 		.b_y(v1_y),
 		.p_x(p_x),	
 		.p_y(p_y),
-		.ds_rfd(sum_rdy),
+		.ds_rfd(sum_ab_rfd),
 		.rdy(ta_c_rdy),
 		.area(area_c)
 	);
 
 	// Delay for 1st level
 	reg [15:0] area_a2, area_b2, area_c2;
+	wire [15:0] abs_area_a = {1'b0, area_a[14:0]};
+	wire [15:0] abs_area_b = {1'b0, area_b[14:0]};
+	wire [15:0] abs_area_c = {1'b0, area_c[14:0]};
 	always @(posedge clk)begin
 		if(rst)begin
 			area_a2 <= 0;
 			area_b2 <= 0;
 			area_c2 <= 0;
 		end else begin
-			area_a2 <= area_a;
-			area_b2 <= area_b;
-			area_c2 <= area_c;
+			area_a2 <= abs_area_a;
+			area_b2 <= abs_area_b;
+			area_c2 <= abs_area_c;
 		end
 	end
 
 	// Sum all areas
-	wire [15:0] sum_ab, sum_abc, u, v, w;
+	wire [15:0] sum_ab, sum_abc;
 	fp_add_micro add_ab (
-		.a(area_a),
-		.b(area_b),
+		.a(abs_area_a),
+		.b(abs_area_b),
 		.operation_nd(ta_a_rdy & ta_b_rdy),
 		.operation_rfd(sum_ab_rfd),
 		.clk(clk),
@@ -136,12 +139,12 @@ module bayesian_coord(
 
 	fp_add_micro add_abc (
 		.a(sum_ab),
-		.b(area_c),
-		.operation_nd(sum_ab_rdy & ta_c_rdy),
+		.b(abs_area_c),
+		.operation_nd(sum_ab_rdy),
 		.operation_rfd(sum_abc_rfd),
 		.clk(clk),
 		.sclr(rst),
-		.ce(),
+		.ce(div_u_rdy | div_v_rdy | div_w_rdy),
 		.result(sum_abc),
 		.rdy(sum_abc_rdy)
 	);
@@ -155,7 +158,7 @@ module bayesian_coord(
 		.clk(clk),
 		.sclr(rst),
 		.ce(ds_rfd),
-		.result(u),
+		.result(b_u),
 		.rdy(u_rdy)
 	);
 
@@ -167,7 +170,7 @@ module bayesian_coord(
 		.clk(clk),
 		.sclr(rst),
 		.ce(ds_rfd),
-		.result(v),
+		.result(b_v),
 		.rdy(v_rdy)
 	);
 
@@ -179,9 +182,11 @@ module bayesian_coord(
 		.clk(clk),
 		.sclr(rst),
 		.ce(ds_rfd),
-		.result(w),
+		.result(b_w),
 		.rdy(w_rdy)
 	);
 
+	assign us_rfd = ta_a_rfd & ta_b_rfd & ta_c_rfd;
+	assign rdy = u_rdy & v_rdy & w_rdy;
 
 endmodule
