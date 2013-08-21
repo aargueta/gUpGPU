@@ -67,18 +67,6 @@ module inside_triangle(
 			any_low <= any_low;
 	end
 
-	/*fp_lte_micro u_low (
-		.a(u),
-		.b(`FP_ZERO),
-		.operation_nd(nd),
-		.operation_rfd(u_low_rfd),
-		.clk(clk),
-		.sclr(rst),
-		.ce(ds_rfd), 
-		.result(u_is_low),
-		.rdy(u_low_rdy)
-	);*/
-
 	fp_ltz u_low(
 		.a(u), 
 		.ltz(u_is_low)
@@ -96,18 +84,6 @@ module inside_triangle(
 		.rdy(u_high_rdy)
 	);
 
-	/*fp_lte_micro v_low (
-		.a(v),
-		.b(`FP_ZERO),
-		.operation_nd(nd),
-		.operation_rfd(v_low_rfd),
-		.clk(clk),
-		.sclr(rst),
-		.ce(ds_rfd), 
-		.result(v_is_low),
-		.rdy(v_low_rdy)
-	);*/
-
 	fp_ltz v_low(
 		.a(v), 
 		.ltz(v_is_low)
@@ -124,18 +100,6 @@ module inside_triangle(
 		.result(v_is_high),
 		.rdy(v_high_rdy)
 	);
-
-	/*fp_lte_micro w_low (
-		.a(w),
-		.b(`FP_ZERO),
-		.operation_nd(nd),
-		.operation_rfd(w_low_rfd),
-		.clk(clk),
-		.sclr(rst),
-		.ce(ds_rfd), 
-		.result(w_is_low),
-		.rdy(w_low_rdy)
-	);*/
 
 	fp_ltz w_low(
 		.a(w), 
