@@ -31,11 +31,12 @@ module zbuf_addr_calc_tb;
 	reg [15:0] fp_x;
 	reg [15:0] fp_y;
 	reg ds_rfd;
-	reg [31:0] zbuff_addr;
 
 	// Outputs
 	wire us_rfd;
 	wire rdy;
+	wire [31:0] zbuff_addr;
+	wire [18:0] frag_id;
 
 	// Instantiate the Unit Under Test (UUT)
 	zbuf_addr_calc uut (
@@ -47,7 +48,8 @@ module zbuf_addr_calc_tb;
 		.fp_y(fp_y), 
 		.ds_rfd(ds_rfd), 
 		.rdy(rdy), 
-		.zbuff_addr(zbuff_addr)
+		.zbuff_addr(zbuff_addr),
+		.frag_id(frag_id)
 	);
 
 	initial begin
@@ -58,7 +60,6 @@ module zbuf_addr_calc_tb;
 		fp_x = 0;
 		fp_y = 0;
 		ds_rfd = 0;
-		zbuff_addr = 0;
 
 		// Wait 100 ns for global reset to finish
 		#100;
@@ -93,7 +94,25 @@ module zbuf_addr_calc_tb;
     	nd = 1;
     	fp_x = 16'h3800; // 0.5
 		fp_y = 16'h3A66; // 0.8
-		#40
+		#10;
+		nd = 0;
+		#10;
+    	nd = 1;
+		fp_x = 16'h3806; // .5 + 2/640 = .503125
+		fp_y = 16'h3A6E; // .8 + 2/480
+		#10;
+		nd = 0;
+		#10;
+    	nd = 1;
+		fp_x = 16'h3809; // .5 + 3/640 = .503125
+		fp_y = 16'h3A73; // .8 + 3/480
+		#10;
+		nd = 0;
+		#10;
+    	nd = 1;
+		fp_x = 16'h3810; // .5 + 5/640
+		fp_y = 16'h3A7B; // .8 + 5/480
+		#100
 		$finish;
 	end
       

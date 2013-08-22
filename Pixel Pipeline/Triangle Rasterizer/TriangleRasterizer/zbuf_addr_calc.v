@@ -31,7 +31,8 @@ module zbuf_addr_calc(
 	ds_rfd,
 	rdy,
 
-	zbuff_addr
+	zbuff_addr,
+	frag_id
 
     );
 
@@ -46,6 +47,7 @@ module zbuf_addr_calc(
 	input ds_rfd;
 	output reg rdy;
 	output reg [31:0] zbuff_addr;
+	output reg [18:0] frag_id;
 
 	parameter ZBUF_LOW_ADDR = 32'h00000000;
 
@@ -98,20 +100,24 @@ module zbuf_addr_calc(
 		.rdy(y_int_rdy)
 	);
 
-	wire [31:0] addr = y_int * 12'd640 + x_int;
+	wire [31:0] addr = y_int[12:2] * 8'd160 + x_int[12:2];
+	wire [18:0] fid = y_int * 12'd640 + x_int;
 	always @(posedge clk)begin
 		if(rst)begin
-			rdy <= 1'b0;
-			final_calc_rdy <= 1'b0;
-			zbuff_addr <= 32'h00000000;
+			rdy 			<= 1'b0;
+			final_calc_rdy 	<= 1'b0;
+			zbuff_addr 		<= 32'h00000000;
+			frag_id			<= 19'd0;
 		end else if(ds_rfd)begin
-			rdy <= x_int_rdy & y_int_rdy;
-			final_calc_rdy <= ds_rfd;
-			zbuff_addr = (addr << 1) + ZBUF_LOW_ADDR;
+			rdy 			<= x_int_rdy & y_int_rdy;
+			final_calc_rdy 	<= ds_rfd;
+			zbuff_addr 		<= (addr << 4) + ZBUF_LOW_ADDR;
+			frag_id			<= fid;
 		end else begin
-			rdy <= rdy;
-			final_calc_rdy <= ds_rfd;
-			zbuff_addr <= zbuff_addr;
+			rdy 			<= rdy;
+			final_calc_rdy 	<= ds_rfd;
+			zbuff_addr 		<= zbuff_addr;
+			frag_id 		<= frag_id;
 		end
 	end
 
