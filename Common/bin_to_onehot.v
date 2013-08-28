@@ -37,5 +37,6 @@ module bin_to_onehot(
 		begin: CONVERSION
 			always @(posedge clk)
 				onehot[i] = (i == bin)? 1'b1 : 1'b0;
-	end
+		end
+	endgenerate
 endmodule
