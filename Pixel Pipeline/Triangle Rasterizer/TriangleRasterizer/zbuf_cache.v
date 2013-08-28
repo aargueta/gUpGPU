@@ -9,13 +9,13 @@
 // Project Name: 
 // Target Devices: 
 // Tool versions: 
-// Description: Direct mapped cache, z-buffer 4x4 blocks come in from RAM and are
-// tagged with the upper 8 bits of the block address. Frag ID in the format of 
-// [15 bit block ID][4 bit sub-block frag ID] are used to pull the appropriate 
+// Description: Direct mapped cache, z-buffer 4x4 caches come in from RAM and are
+// tagged with the upper 8 bits of the cache address. Frag ID in the format of 
+// [15 bit cache ID][4 bit sub-cache frag ID] are used to pull the appropriate 
 // 16-bit z-value. 
 // ID's are calculated as follows:
-// 		Block ID = y_block * num_x_blocks + x_blocks
-// 		SB Frag ID = sub_block_y * 4 + sub_block_x
+// 		Block ID = y_cache * num_x_caches + x_caches
+// 		SB Frag ID = sub_cache_y * 4 + sub_cache_x
 //
 // Dependencies: 
 //
@@ -25,140 +25,221 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 
-`define INVLD_IDLE	2'b00
-`define INVLD_RD	2'b01
-`define INVLD_WR	2'b10
+`define MEM_IDLE		3'b000
+`define MEM_SEND_RD		3'b001
+`define MEM_WAIT_RD		3'b010
+`define MEM_LOAD		3'b011
+`define MEM_WRITE		3'b100
+`define MEM_DONE		3'b111
+
+`define READ_IDLE		2'b00
+`define READ_HIT		2'b01
+`define READ_STALL		2'b10
+
+`define WRITE_IDLE		2'b00
+`define WRITE_HIT		2'b01
+`define WRITE_STALL		2'b10
+
 module zbuf_cache(
 	clk,
 	rst,
 
-	block_wr_addr,
-	block_wr_data,
-	block_wr_en,
+	cache_wr_addr,
+	cache_wr_data,
+	cache_wr_en,
+	cache_wr_ack,
+	cache_wr_done,
+
+	mem_wr_addr,
+	mem_wr_data,
+	mem_wr_en,
+	mem_wr_ack,
 
 	frag_id,
 	frag_rd_en,
 
-	frag_rd_data,
-	frag_rd_vld,
+	frag_hit,
+	frag_zval,
 
-	invld_id,
-	invld_en,
-	invld_ack
+	update_id,
+	update_en,
+	update_val,
+
+	update_hit
 );
 
-	input clk,
-	input rst,
+	input clk;
+	input rst;
 
-	input [14:0] block_wr_addr;
-	input [31:0] block_wr_data; 	// Each write takes 8 cycles 
-	input block_wr_new; 			// High for first word 
-	input block_wr_en;			// Stays high for each cycle 
+	input [10:0] cache_wr_addr;
+	input [31:0] cache_wr_data;
+	input cache_wr_en;
+	input cache_wr_ack;
+	input cache_wr_done;
+
+	output [31:0] mem_wr_addr;
+	output [31:0] mem_wr_data;
+	output mem_wr_en;
+	input  mem_wr_ack;
 
 	input [18:0] frag_id;
 	input frag_rd_en;
-	output [15:0] frag_rd_data;
-	output frag_rd_vld;
 
-	input [18:0] invld_id;
-	input invld_en;
-	output invld_ack;
+	output frag_hit;
+	output reg [15:0] frag_zval;
 
-	wire [23:0] tag_rd_data;
+	input [18:0] update_id;
+	input update_en;
+	input [15:0] update_val;
 
-	/*** BLOCK WRITE LOGIC ***/
-	reg [4:0] block_offset;
-	always @(posedge clk)begin
-		if(rst | block_wr_new)begin
-			block_offset <= 0;
-		end else if(block_wr_en)begin
-			if(block_offset < 5'd8)
-				block_offset <= block_offset + 5'd1;
-			else
-				block_offset <= 0;
-		end else begin
-			block_offset <= block_offset;
-		end
-	end
+	output update_hit;
 
-	wire [9:0] cache_w_addr = (block_wr_addr[6:0] << 2) + block_offset;
-	wire [10:0] cache_r_addr = frag_id[10:0];
-	zbuf_dm_cache data_cache (
-		.clka(clk),
-		.wea(block_wr_en),
-		.addra(cache_addr),
-		.dina(block_wr_data),
-		.clkb(clk),
-		.rstb(rst),
-		.addrb(cache_r_addr),
-		.doutb(frag_rd_data)
+
+	wire [15:0] zval_out0, zval_out1, zval_out2, zval_out3;
+
+	reg [8:0] bank0_tag, bank1_tag, bank2_tag, bank3_tag;
+
+	/*** BANK HIT LOGIC ***/
+	wire [3:0] bank_select;
+	bank_hit bank_frag_hit(
+		.clk(clk),
+		.rst(rst),
+		.tag_in(frag_id[18:0]),
+		.bank_tag_0(bank_tag_0),
+		.bank_tag_1(bank_tag_1),
+		.bank_tag_2(bank_tag_2),
+		.bank_tag_3(bank_tag_3),
+		.hit(frag_hit),
+		.select(bank_select)
 	);
 
-	/*** BLOCK TAG LOGIC ***/
-	wire [23:0] block_tag_data = {16'hFFFF, block_wr_addr[14:7]};
-	wire [6:0] block_tag_addr = block_wr_addr[6:0];
-	wire block_tag_wr_en = (block_offset == 5'd8);
+	wire [3:0] update_bank_select;
+	bank_hit bank_update_hit(
+		.clk(clk),
+		.rst(rst),
+		.tag_in(frag_id[18:0]),
+		.bank_tag_0(bank_tag_0),
+		.bank_tag_1(bank_tag_1),
+		.bank_tag_2(bank_tag_2),
+		.bank_tag_3(bank_tag_3),
+		.hit(update_hit),
+		.select(update_bank_select)
+	);
 
-	/*** INVALIDATE LOGIC ***/
-	reg [1:0] invld_state;
-	reg [6:0] invld_addr;
-	reg [7:0] invld_tag;
+
+	/*** LRU LOGIC ***/
+	wire [3:0] lru;
+	lru_tracker lru_tracker(
+		.clk(clk),
+		.rst(rst),
+		.read_en(frag_rd_en),
+		.bank_hit({bank3_hit, bank2_hit, bank1_hit, bank0_hit}),
+		.lru(lru)
+	);
+
+	/*** CACHE READ LOGIC ***/
+	wire [1:0] read_state;
+	cache_read_sm cache_read_sm(
+		.clk(clk),
+		.rst(rst),
+		.rd_en(frag_rd_en),
+		.hit(frag_hit),
+		.mem_done(mem_state == `MEM_DONE),
+		.read_state(read_state)
+	);
+
+	/*** CACHE WRITE LOGIC ***/
+	wire [1:0] write_state;
+	cache_write_sm cache_write_sm(
+		.clk(clk),
+		.rst(rst),
+		.update_en(update_en),
+		.update_hit(update_hit),
+		.write_state(write_state)
+	);
+
+	/*** MEMORY IO LOGIC ***/
+	wire [2:0] mem_state;
+
+	reg [3:0] bank_dirty;
+	wire curr_bank_dirty = |(bank_dirty & bank_select);
+	main_mem_sm main_mem_sm(
+		.clk(clk),
+		.rst(rst),
+		.read_stall(read_state == `READ_STALL),
+		.curr_bank_dirty(curr_bank_dirty),
+		.cache_wr_en(cache_wr_en),
+		.cache_wr_done(cache_wr_done),
+		.mem_wr_ack(mem_wr_ack),
+		.mem_state(mem_state)
+	);
+
+	/*** DIRTY BANK LOGIC ***/
 	always @(posedge clk)begin
 		if(rst)
-			invld_state <= `INVLD_IDLE;
-			invld_addr <= 0;
-			invld_tag <= 0;
+			bank_dirty <= 4'b0000;
+		else if(write_state == `WRITE_HIT)
+			// Dirty bank when written to
+			bank_dirty <= bank_dirty | bank_select;
+		else if(mem_state == `MEM_DONE)
+			// Clear dirty bit as bank written back
+			bank_dirty <= bank_dirty & ~lru;
 		else
-			case(invld_state)begin
-				`INVLD_IDLE: 
-					invld_state <= invld_en? `INVLD_RD : `INVLD_IDLE;
- 					invld_addr <= invld_en? invld_id[10:4] : invld_addr;
- 					invld_tag <= invld_en? invld_id[18:11] : invld_tag;
-				`INVLD_RD:
-					invld_state <= (invld_tag == tag_rd_data[7:0])? `INVLD_WR : `INVLD_IDLE; // Abort in case already evicted
-				`INVLD_WR:
-					invld_state <= `INVLD_IDLE;
-				default:
-					invld_state <= `INVLD_IDLE;
- 					invld_addr <= invld_en? invld_id[10:4] : invld_addr;
- 					invld_tag <= invld_en? invld_id[18:11] : invld_tag;
-			endcase
+			bank_dirty <= bank_dirty;
 	end
-	wire invld_tag_wr_en = (invld_state == `INVLD_WR);
-	assign invld_ack = invld_tag_wr_en;
-	wire [15:0] invld_mask;
-	bin_to_onehot #(4) fid_to_mask(	
-		.clk(clk),
-		.bin(invld_id[3:0]),
-		.onehot(frag_vld_mask)
+
+	zbuf_18k_cache zbuf_data_bank0 (
+	  .clka(clk),
+	  .wea(wea),
+	  .addra(addra),
+	  .dina(dina),
+	  .clkb(clk),
+	  .addrb(addrb),
+	  .doutb(zval_out0)
 	);
 
-	/*** FRAG TAG LOGIC ***/
-	wire [6:0] tag_rd_addr = (invld_state == `INVLD_RD)? invld_addr : frag_id[10:4];
-	wire [7:0] frag_tag_in = frag_id[18:11];
-	wire [15:0] frag_vld_mask;
-	bin_to_onehot #(4) fid_to_mask(	
-		.clk(clk),
-		.bin(frag_id[3:0]),
-		.onehot(frag_vld_mask)
+	zbuf_18k_cache zbuf_data_bank1 (
+	  .clka(clk),
+	  .wea(wea),
+	  .addra(addra),
+	  .dina(dina),
+	  .clkb(clk),
+	  .addrb(addrb),
+	  .doutb(zval_out1)
 	);
 
-	/*** TAG CACHE ***/
-	wire tag_wr_en = invld_tag_wr_en & block_tag_wr_en;
-	wire [6:0] tag_wr_addr = invld_tag_wr_en? invld_addr : block_tag_addr;
-	wire [23:0] tag_wr_data = invld_tag_wr_en? 
-	zbuf_tag_cache tag_cache (
-		.clka(clk),
-		.wea(tag_wr_en),
-		.addra(tag_wr_addr), // input [6 : 0] addra
-		.dina(tag_wr_data), // input [23 : 0] dina
-		.clkb(clk),
-		.rstb(rst),
-		.addrb(tag_rd_addr), // input [6 : 0] addrb
-		.doutb(tag_rd_data) // output [23 : 0] doutb
+	zbuf_18k_cache zbuf_data_bank2 (
+	  .clka(clk),
+	  .wea(wea),
+	  .addra(addra),
+	  .dina(dina),
+	  .clkb(clk),
+	  .addrb(addrb),
+	  .doutb(zval_out2)
 	);
 
-	wire frag_tag_vld = |(frag_vld_mask & tag_rd_data[23:8]);
-	wire frag_tag_hit = (frag_tag_in == tag_rd_data[7:0]);
-	assign frag_rd_vld = rst?  0 : (frag_tag_vld & frag_tag_hit);
+	zbuf_18k_cache zbuf_data_bank3 (
+	  .clka(clk),
+	  .wea(wea),
+	  .addra(addra),
+	  .dina(dina),
+	  .clkb(clk),
+	  .addrb(addrb),
+	  .doutb(zval_out3)
+	);
+
+	always @(*)begin
+		case(bank_select)
+			2'b00:
+				frag_zval <= zval_out0;
+			2'b01:
+				frag_zval <= zval_out1;
+			2'b10:
+				frag_zval <= zval_out2;
+			2'b11
+				frag_zval <= zval_out3;
+			default:
+				frag_zval <= zval_out0;
+		endcase
+	end
 endmodule
