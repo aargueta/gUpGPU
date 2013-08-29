@@ -2,20 +2,20 @@ module bank_hit(
 	clk,
 	rst,
 	tag_in,
-	bank_tag_0,
-	bank_tag_1,
-	bank_tag_2,
-	bank_tag_3,
+	bank0_tag,
+	bank1_tag,
+	bank2_tag,
+	bank3_tag,
 	hit,
 	select
 );
 	input clk;
 	input rst;
 	input [8:0] tag_in;
-	input [8:0] bank_tag_0;
-	input [8:0] bank_tag_1;
-	input [8:0] bank_tag_2;
-	input [8:0] bank_tag_3;
+	input [8:0] bank0_tag;
+	input [8:0] bank1_tag;
+	input [8:0] bank2_tag;
+	input [8:0] bank3_tag;
 
 	output reg hit;
 	output reg [3:0] select;
@@ -26,7 +26,7 @@ module bank_hit(
 	wire bank3_hit = (tag_in == bank3_tag);
 	always @(*)begin
 		if(rst)begin
-			bank_select <= 4'b0000;
+			select <= 4'b0000;
 			hit <= 0;
 		end else begin
 			hit <= bank3_hit | bank2_hit | bank1_hit | bank0_hit;

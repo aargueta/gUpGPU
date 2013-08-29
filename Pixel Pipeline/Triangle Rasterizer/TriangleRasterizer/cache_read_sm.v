@@ -24,11 +24,11 @@ module cache_read_sm(
 		else
 			case(read_state)
 				`READ_IDLE: 
-					read_state <= frag_rd_en? (frag_hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
+					read_state <= rd_en? (hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
 				`READ_HIT: 
-					read_state <= frag_rd_en? (frag_hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
+					read_state <= rd_en? (hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
 				`READ_STALL: 
-					read_state <= (mem_state == `MEM_DONE)? (frag_hit? `READ_HIT : `READ_STALL) : `READ_STALL;
+					read_state <= (mem_done)? (hit? `READ_HIT : `READ_STALL) : `READ_STALL;
 				default: 
 					read_state <= `READ_IDLE;
 			endcase

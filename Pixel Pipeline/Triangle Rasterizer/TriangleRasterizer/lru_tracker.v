@@ -19,22 +19,22 @@ module lru_tracker(
 
 	reg [3:0] lru_timer;
 	reg [2:0] bank0_lru, bank1_lru, bank2_lru, bank3_lru;
-	wire [3:0] lru;
 
-	wire lru01_l = bank0_lru < bank1_lru;
-	wire lru23_l = bank2_lru < bank3_lru;
+	wire lru01_g = bank0_lru > bank1_lru;
+	wire lru23_g = bank2_lru > bank3_lru;
 
-	wire lru0123_l = (lru23_l? bank2_lru : bank3_lru) < (lru01_l? bank0_lru : bank1_lru);
+	wire lru0123_l = (lru23_g? bank2_lru : bank3_lru) < (lru01_g? bank0_lru : bank1_lru);
 	always @(*)begin
-		if(lru0123_l)
-			lru <= lru23_l? `CACHE_2 : `CACHE_3;
+		if(rst)
+			lru <= 4'b0001;
+		else if(lru0123_l)
+			lru <= lru23_g? `CACHE_3 : `CACHE_2;
 		else
-			lru <= lru01_l? `CACHE_0 : `CACHE_1;
+			lru <= lru01_g? `CACHE_1 : `CACHE_0;
 	end
 
 	always @(posedge clk)begin
 		if(rst)begin
-			lru <= 4'b0001;
 			lru_timer <= 4'd0;
 			bank0_lru <= 3'd0;
 			bank1_lru <= 3'd0;
@@ -42,7 +42,7 @@ module lru_tracker(
 			bank3_lru <= 3'd0;
 		end else begin
 			if(read_en)begin
-				lru_timer <= frag_hit? lru_timer + 4'b1 : lru_timer;
+				lru_timer <= (|bank_hit)? lru_timer + 4'b1 : lru_timer;
 				if(lru_timer == 4'd0)begin
 					bank0_lru <= {bank_hit[0], 2'b00} | (bank0_lru >> 1);
 					bank1_lru <= {bank_hit[1], 2'b00} | (bank1_lru >> 1);

@@ -10,9 +10,10 @@ module main_mem_sm(
 	read_stall,
 	curr_bank_dirty,
 	cache_wr_en,
-	cache_wr_done,
 	mem_wr_ack,
-	mem_state
+	mem_state,
+	evict_rd_addr,
+	evict_wr_addr
 );
 
 	input clk;
@@ -20,27 +21,33 @@ module main_mem_sm(
 	input read_stall;
 	input curr_bank_dirty;
 	input cache_wr_en;
-	input cache_wr_done;
 	input mem_wr_ack;
 	output reg [2:0] mem_state;
+	output [8:0] evict_rd_addr;
+	output reg [8:0] evict_wr_addr;
 
-	reg [9:0] mem_wr_state;
-	wire mem_wr_done = mem_wr_state[9];
+	reg [8:0] cache_xfr_state;
+	reg cache_xfr_done, evict_wr_done;
 	always @(posedge clk)begin
-		if(rst || (mem_state ~= `MEM_LOAD) || cache_xfer_done)
-			mem_wr_state <= 10'd0;
-		else
-			mem_wr_state <= mem_wr_state + cache_wr_en;
+		if(rst || ((mem_state != `MEM_LOAD) && (mem_state != `MEM_WRITE)) || cache_xfr_done)
+			{cache_xfr_done, cache_xfr_state} <= 9'd0;
+		else if(mem_state == `MEM_LOAD)
+			{cache_xfr_done, cache_xfr_state} <= cache_xfr_state + cache_wr_en;
+		else if(mem_state == `MEM_WRITE)
+			{cache_xfr_done, cache_xfr_state} <= cache_xfr_state + mem_wr_ack;
+		{evict_wr_done, evict_wr_addr} <= {cache_xfr_done, cache_xfr_state};
 	end
+
+	assign evict_rd_addr = cache_xfr_state;
 
 	always @(posedge clk)begin
 		if(rst)
-			mem_state <= `LOAD_IDLE;
+			mem_state <= `MEM_IDLE;
 		else
 			case(mem_state)
 				`MEM_IDLE: 
 					if(read_stall)
-						mem_state <= curr_bank_dirty? `MEM_WRITE : `MEM_SEND_RD );
+						mem_state <= curr_bank_dirty? `MEM_WRITE : `MEM_SEND_RD;
 					else
 						mem_state <= `MEM_IDLE;
 				`MEM_SEND_RD:
@@ -48,9 +55,9 @@ module main_mem_sm(
 				`MEM_WAIT_RD:
 					mem_state <= cache_wr_en? `MEM_LOAD : `MEM_WAIT_RD;
 				`MEM_LOAD:
-					mem_state <= cache_wr_done? `MEM_DONE : `MEM_LOAD;
+					mem_state <= cache_xfr_done? `MEM_DONE : `MEM_LOAD;
 				`MEM_WRITE:
-					mem_state <= mem_wr_done? `MEM_DONE : `MEM_WRITE;
+					mem_state <= evict_wr_done? `MEM_DONE : `MEM_WRITE;
 				`MEM_DONE:
 					mem_state <= `MEM_IDLE;
 				default:

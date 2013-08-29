@@ -48,7 +48,6 @@ module zbuf_cache(
 	cache_wr_data,
 	cache_wr_en,
 	cache_wr_ack,
-	cache_wr_done,
 
 	mem_wr_addr,
 	mem_wr_data,
@@ -71,14 +70,13 @@ module zbuf_cache(
 	input clk;
 	input rst;
 
-	input [10:0] cache_wr_addr;
+	input [18:0] cache_wr_addr;
 	input [31:0] cache_wr_data;
 	input cache_wr_en;
-	input cache_wr_ack;
-	input cache_wr_done;
+	output cache_wr_ack;
 
 	output [31:0] mem_wr_addr;
-	output [31:0] mem_wr_data;
+	output reg [31:0] mem_wr_data;
 	output mem_wr_en;
 	input  mem_wr_ack;
 
@@ -95,50 +93,52 @@ module zbuf_cache(
 	output update_hit;
 
 
-	wire [15:0] zval_out0, zval_out1, zval_out2, zval_out3;
-
+	wire [31:0] zval_out0, zval_out1, zval_out2, zval_out3;
 	reg [8:0] bank0_tag, bank1_tag, bank2_tag, bank3_tag;
+	
+	wire [3:0] bank_select;
+	wire [3:0] update_bank_select;
+	wire [3:0] lru;
+	wire [1:0] read_state;
+	wire [1:0] write_state;
+	wire [2:0] mem_state;
 
 	/*** BANK HIT LOGIC ***/
-	wire [3:0] bank_select;
 	bank_hit bank_frag_hit(
 		.clk(clk),
 		.rst(rst),
-		.tag_in(frag_id[18:0]),
-		.bank_tag_0(bank_tag_0),
-		.bank_tag_1(bank_tag_1),
-		.bank_tag_2(bank_tag_2),
-		.bank_tag_3(bank_tag_3),
+		.tag_in(frag_id[18:10]),
+		.bank0_tag(bank0_tag),
+		.bank1_tag(bank1_tag),
+		.bank2_tag(bank2_tag),
+		.bank3_tag(bank3_tag),
 		.hit(frag_hit),
 		.select(bank_select)
 	);
 
-	wire [3:0] update_bank_select;
 	bank_hit bank_update_hit(
 		.clk(clk),
 		.rst(rst),
-		.tag_in(frag_id[18:0]),
-		.bank_tag_0(bank_tag_0),
-		.bank_tag_1(bank_tag_1),
-		.bank_tag_2(bank_tag_2),
-		.bank_tag_3(bank_tag_3),
+		.tag_in(update_id[18:10]),
+		.bank0_tag(bank0_tag),
+		.bank1_tag(bank1_tag),
+		.bank2_tag(bank2_tag),
+		.bank3_tag(bank3_tag),
 		.hit(update_hit),
 		.select(update_bank_select)
 	);
 
 
 	/*** LRU LOGIC ***/
-	wire [3:0] lru;
 	lru_tracker lru_tracker(
 		.clk(clk),
 		.rst(rst),
 		.read_en(frag_rd_en),
-		.bank_hit({bank3_hit, bank2_hit, bank1_hit, bank0_hit}),
+		.bank_hit(bank_select),
 		.lru(lru)
 	);
 
 	/*** CACHE READ LOGIC ***/
-	wire [1:0] read_state;
 	cache_read_sm cache_read_sm(
 		.clk(clk),
 		.rst(rst),
@@ -149,7 +149,6 @@ module zbuf_cache(
 	);
 
 	/*** CACHE WRITE LOGIC ***/
-	wire [1:0] write_state;
 	cache_write_sm cache_write_sm(
 		.clk(clk),
 		.rst(rst),
@@ -159,20 +158,22 @@ module zbuf_cache(
 	);
 
 	/*** MEMORY IO LOGIC ***/
-	wire [2:0] mem_state;
 
 	reg [3:0] bank_dirty;
 	wire curr_bank_dirty = |(bank_dirty & bank_select);
+	wire [8:0] evict_rd_addr, evict_wr_addr;
 	main_mem_sm main_mem_sm(
 		.clk(clk),
 		.rst(rst),
 		.read_stall(read_state == `READ_STALL),
 		.curr_bank_dirty(curr_bank_dirty),
 		.cache_wr_en(cache_wr_en),
-		.cache_wr_done(cache_wr_done),
 		.mem_wr_ack(mem_wr_ack),
-		.mem_state(mem_state)
+		.mem_state(mem_state),
+		.evict_rd_addr(evict_rd_addr),
+		.evict_wr_addr(evict_wr_addr)
 	);
+	wire evicting_bank = (mem_state == `MEM_WRITE);
 
 	/*** DIRTY BANK LOGIC ***/
 	always @(posedge clk)begin
@@ -188,58 +189,122 @@ module zbuf_cache(
 			bank_dirty <= bank_dirty;
 	end
 
+	wire [3:0] bank_we = update_hit? update_bank_select : (cache_wr_en? lru : 4'b0000);
+	wire [8:0] bank_wr_addr, bank_tag;
+	assign {bank_tag, bank_wr_addr} = update_hit? update_id[18:1] : cache_wr_addr[18:1];
+	wire [31:0] bank_wr_data = update_hit? update_val : cache_wr_data;
+	wire update_hs = update_id[0];
+
+	wire [8:0] bank_rd_addr = evicting_bank? evict_rd_addr : frag_id[9:1];
+	wire frag_hs = frag_id[0];
+
+	always @(posedge clk)begin
+		if(rst)begin
+			bank0_tag <= 9'h1FF;
+			bank1_tag <= 9'h1FF;
+			bank2_tag <= 9'h1FF;
+			bank3_tag <= 9'h1FF;
+		end else if(mem_state == `MEM_DONE)begin
+			case(lru)
+				4'b0001:
+					bank0_tag <= bank_tag;
+				4'b0010:
+					bank1_tag <= bank_tag; 
+				4'b0100:
+					bank2_tag <= bank_tag;
+				4'b1000:
+					bank3_tag <= bank_tag;
+				default:
+					bank0_tag <= bank_tag;
+			endcase
+		end
+	end
+
+	wire [3:0] bank0_we = cache_wr_en? {4{bank_we[0]}} : (update_hs? {{2{bank_we[0]}}, 2'b00} : {2'b00, {2{bank_we[0]}}});
 	zbuf_18k_cache zbuf_data_bank0 (
-	  .clka(clk),
-	  .wea(wea),
-	  .addra(addra),
-	  .dina(dina),
-	  .clkb(clk),
-	  .addrb(addrb),
-	  .doutb(zval_out0)
+		.clka(clk),
+		.wea(bank0_we),
+		.addra(bank_wr_addr),
+		.dina(bank_wr_data),
+		.clkb(clk),
+		.addrb(bank_rd_addr),
+		.doutb(zval_out0)
 	);
-
+	
+	wire [3:0] bank1_we = cache_wr_en? {4{bank_we[1]}} : (update_hs? {{2{bank_we[1]}}, 2'b00} : {2'b00, {2{bank_we[1]}}});
 	zbuf_18k_cache zbuf_data_bank1 (
-	  .clka(clk),
-	  .wea(wea),
-	  .addra(addra),
-	  .dina(dina),
-	  .clkb(clk),
-	  .addrb(addrb),
-	  .doutb(zval_out1)
+		.clka(clk),
+		.wea(bank1_we),
+		.addra(bank_wr_addr),
+		.dina(bank_wr_data),
+		.clkb(clk),
+		.addrb(bank_rd_addr),
+		.doutb(zval_out1)
 	);
-
+	
+	wire [3:0] bank2_we = cache_wr_en? {4{bank_we[2]}} : (update_hs? {{2{bank_we[2]}}, 2'b00} : {2'b00, {2{bank_we[2]}}});
 	zbuf_18k_cache zbuf_data_bank2 (
-	  .clka(clk),
-	  .wea(wea),
-	  .addra(addra),
-	  .dina(dina),
-	  .clkb(clk),
-	  .addrb(addrb),
-	  .doutb(zval_out2)
+		.clka(clk),
+		.wea(bank2_we),
+		.addra(bank_wr_addr),
+		.dina(bank_wr_data),
+		.clkb(clk),
+		.addrb(bank_rd_addr),
+		.doutb(zval_out2)
 	);
-
+	
+	wire [3:0] bank3_we = cache_wr_en? {4{bank_we[3]}} : (update_hs? {{2{bank_we[3]}}, 2'b00} : {2'b00, {2{bank_we[3]}}});
 	zbuf_18k_cache zbuf_data_bank3 (
-	  .clka(clk),
-	  .wea(wea),
-	  .addra(addra),
-	  .dina(dina),
-	  .clkb(clk),
-	  .addrb(addrb),
-	  .doutb(zval_out3)
+		.clka(clk),
+		.wea(bank3_we),
+		.addra(bank_wr_addr),
+		.dina(bank_wr_data),
+		.clkb(clk),
+		.addrb(bank_rd_addr),
+		.doutb(zval_out3)
 	);
 
 	always @(*)begin
 		case(bank_select)
-			2'b00:
-				frag_zval <= zval_out0;
-			2'b01:
-				frag_zval <= zval_out1;
-			2'b10:
-				frag_zval <= zval_out2;
-			2'b11
-				frag_zval <= zval_out3;
+			4'b0001:
+				frag_zval <= frag_hs? zval_out0[31:16] : zval_out0[15:0];
+			4'b0010:
+				frag_zval <= frag_hs? zval_out1[31:16] : zval_out1[15:0];
+			4'b0100:
+				frag_zval <= frag_hs? zval_out2[31:16] : zval_out2[15:0];
+			4'b1000:
+				frag_zval <= frag_hs? zval_out3[31:16] : zval_out3[15:0];
 			default:
-				frag_zval <= zval_out0;
+				frag_zval <= zval_out0[15:0];
 		endcase
 	end
+
+	reg [8:0] selected_tag;
+	always @(*)begin
+		case(lru)
+			4'b0001:begin
+				mem_wr_data <= zval_out0;
+				selected_tag <= bank0_tag;
+			end
+			4'b0010:begin
+				mem_wr_data <= zval_out1;
+				selected_tag <= bank1_tag;
+			end
+			4'b0100:begin
+				mem_wr_data <= zval_out2;
+				selected_tag <= bank2_tag;
+			end
+			4'b1000:begin
+				mem_wr_data <= zval_out3;
+				selected_tag <= bank3_tag;
+			end
+			default:begin
+				mem_wr_data <= zval_out0;
+				selected_tag <= 9'h1FF;
+			end
+		endcase
+	end
+
+	assign mem_wr_en = evicting_bank;
+	assign mem_wr_addr = {selected_tag, evict_wr_addr, 1'b0};
 endmodule
