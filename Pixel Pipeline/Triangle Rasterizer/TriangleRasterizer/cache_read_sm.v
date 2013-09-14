@@ -1,6 +1,7 @@
 `define READ_IDLE		2'b00
 `define READ_HIT		2'b01
 `define READ_STALL		2'b10
+`define READ_CHECK		2'b11
 
 module cache_read_sm(
 	clk,
@@ -27,8 +28,10 @@ module cache_read_sm(
 					read_state <= rd_en? (hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
 				`READ_HIT: 
 					read_state <= rd_en? (hit? `READ_HIT : `READ_STALL) : `READ_IDLE;
-				`READ_STALL: 
-					read_state <= (mem_done)? (hit? `READ_HIT : `READ_STALL) : `READ_STALL;
+				`READ_STALL:
+					read_state <= (mem_done)? (hit? `READ_HIT : `READ_CHECK) : `READ_STALL;
+				`READ_CHECK:
+					read_state <= hit? `READ_HIT : `READ_STALL;
 				default: 
 					read_state <= `READ_IDLE;
 			endcase
