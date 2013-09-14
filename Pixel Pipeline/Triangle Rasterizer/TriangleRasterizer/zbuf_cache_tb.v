@@ -27,12 +27,6 @@ module zbuf_cache_tb;
 	// Inputs
 	reg clk;
 	reg rst;
-	reg [18:0] cache_wr_addr;
-	reg [31:0] cache_wr_data;
-	reg cache_wr_en;
-	reg cache_wr_ack;
-	reg cache_wr_done;
-	reg mem_wr_ack;
 	reg [18:0] frag_id;
 	reg frag_rd_en;
 	reg [18:0] update_id;
@@ -42,12 +36,22 @@ module zbuf_cache_tb;
 	reg [3:0] i;
 
 	// Outputs
-	wire [31:0] mem_wr_addr;
+	wire [18:0] mem_wr_addr;
 	wire [31:0] mem_wr_data;
 	wire mem_wr_en;
 	wire frag_hit;
 	wire [15:0] frag_zval;
 	wire update_hit;
+	wire [18:0] mem_rd_addr;
+	wire mem_rd_en;
+
+	// Memory Emulation I/Os
+	wire [18:0] cache_wr_addr;
+	wire [31:0] cache_wr_data;
+	wire cache_wr_en;
+	wire cache_wr_ack;
+	//wire mem_wr_ack;
+	wire cache_wr_done;
 
 	// Instantiate the Unit Under Test (UUT)
 	zbuf_cache uut (
@@ -56,11 +60,14 @@ module zbuf_cache_tb;
 		.cache_wr_addr(cache_wr_addr), 
 		.cache_wr_data(cache_wr_data), 
 		.cache_wr_en(cache_wr_en), 
+		.cache_wr_done(cache_wr_done),
 		.cache_wr_ack(cache_wr_ack), 
+		.mem_rd_addr(mem_rd_addr),
+		.mem_rd_en(mem_rd_en),
 		.mem_wr_addr(mem_wr_addr), 
 		.mem_wr_data(mem_wr_data), 
 		.mem_wr_en(mem_wr_en), 
-		.mem_wr_ack(mem_wr_ack), 
+		.mem_wr_ack(1'b1), 
 		.frag_id(frag_id), 
 		.frag_rd_en(frag_rd_en), 
 		.frag_hit(frag_hit), 
@@ -71,16 +78,22 @@ module zbuf_cache_tb;
 		.update_hit(update_hit)
 	);
 
+	main_mem_emul mem_emul(
+		.clk(clk),
+		.rst(rst),
+		.mem_rd_addr(mem_rd_addr),
+		.mem_rd_en(mem_rd_en),
+		.cache_wr_addr(cache_wr_addr),
+		.cache_wr_data(cache_wr_data),
+		.cache_wr_en(cache_wr_en),
+		.cache_wr_ack(cache_wr_ack),
+		.cache_wr_done(cache_wr_done)
+	);
+
 	initial begin
 		// Initialize Inputs
 		clk = 0;
 		rst = 0;
-		cache_wr_addr = 0;
-		cache_wr_data = 0;
-		cache_wr_en = 0;
-		cache_wr_ack = 0;
-		cache_wr_done = 0;
-		mem_wr_ack = 0;
 		frag_id = 0;
 		frag_rd_en = 0;
 		update_id = 0;
@@ -107,20 +120,10 @@ module zbuf_cache_tb;
 			frag_id = 19'h40000 + {i, 15'd0};
 			frag_rd_en = 1'b1;
 			#20;
-			mem_wr_ack = 1'b1;
 			#10;
-			mem_wr_ack = 1'b0;
-			cache_wr_en = 1'b1;
-			cache_wr_addr = 19'h40000 + {i, 15'd0};
-			cache_wr_data = 32'h11100000 | {12'd0, i, 12'd0, i};
-			#10;
-			cache_wr_addr = 19'h40002 + {i, 15'd0};
-			cache_wr_data = 32'h33302220 | {12'd0, i, 12'd0, i};
-			#10;
-			cache_wr_addr = 19'h40004 + {i, 15'd0};
-			cache_wr_data = 32'h55504440 | {12'd0, i, 12'd0, i};
-			while(~frag_hit)
+			while(~frag_hit)begin
 				#10;
+			end
 			frag_rd_en = 1'b0;
 			#20;
 			frag_id = 19'h40001 + {i, 15'd0};
@@ -128,8 +131,9 @@ module zbuf_cache_tb;
 			#20;
 			frag_id = 19'h40002 + {i, 15'd0};
 			frag_rd_en = 1'b1;
-			while(~frag_hit)
+			while(~frag_hit)begin
 				#10;
+			end
 			update_id = 19'h40004 + {i, 15'd0};
 			update_en = 1'b1;
 			update_val = 16'hBEEF;
