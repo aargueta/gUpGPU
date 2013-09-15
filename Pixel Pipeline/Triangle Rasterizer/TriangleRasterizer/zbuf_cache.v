@@ -35,6 +35,7 @@
 `define READ_IDLE		2'b00
 `define READ_HIT		2'b01
 `define READ_STALL		2'b10
+`define READ_CHECK		2'b11
 
 `define WRITE_IDLE		2'b00
 `define WRITE_HIT		2'b01
@@ -47,7 +48,11 @@ module zbuf_cache(
 	cache_wr_addr,
 	cache_wr_data,
 	cache_wr_en,
+	cache_wr_done,
 	cache_wr_ack,
+
+	mem_rd_addr,
+	mem_rd_en,
 
 	mem_wr_addr,
 	mem_wr_data,
@@ -73,7 +78,11 @@ module zbuf_cache(
 	input [18:0] cache_wr_addr;
 	input [31:0] cache_wr_data;
 	input cache_wr_en;
+	input cache_wr_done;
 	output cache_wr_ack;
+
+	output [18:0] mem_rd_addr;
+	output mem_rd_en;
 
 	output [31:0] mem_wr_addr;
 	output reg [31:0] mem_wr_data;
@@ -90,7 +99,7 @@ module zbuf_cache(
 	input update_en;
 	input [15:0] update_val;
 
-	output update_hit;
+	output update_hit; 
 
 
 	wire [31:0] zval_out0, zval_out1, zval_out2, zval_out3;
@@ -116,6 +125,7 @@ module zbuf_cache(
 		.select(bank_select)
 	);
 
+	wire update_tag_hit;
 	bank_hit bank_update_hit(
 		.clk(clk),
 		.rst(rst),
@@ -124,10 +134,10 @@ module zbuf_cache(
 		.bank1_tag(bank1_tag),
 		.bank2_tag(bank2_tag),
 		.bank3_tag(bank3_tag),
-		.hit(update_hit),
+		.hit(update_tag_hit),
 		.select(update_bank_select)
 	);
-
+	assign update_hit = update_tag_hit & (write_state != `MEM_IDLE);
 
 	/*** LRU LOGIC ***/
 	lru_tracker lru_tracker(
@@ -160,14 +170,15 @@ module zbuf_cache(
 	/*** MEMORY IO LOGIC ***/
 
 	reg [3:0] bank_dirty;
-	wire curr_bank_dirty = |(bank_dirty & bank_select);
+	wire evict_bank_dirty = |(bank_dirty & bank_select);
 	wire [8:0] evict_rd_addr, evict_wr_addr;
 	main_mem_sm main_mem_sm(
 		.clk(clk),
 		.rst(rst),
 		.read_stall(read_state == `READ_STALL),
-		.curr_bank_dirty(curr_bank_dirty),
+		.evict_bank_dirty(evict_bank_dirty),
 		.cache_wr_en(cache_wr_en),
+		.cache_wr_done(cache_wr_done),
 		.mem_wr_ack(mem_wr_ack),
 		.mem_state(mem_state),
 		.evict_rd_addr(evict_rd_addr),
@@ -304,7 +315,10 @@ module zbuf_cache(
 			end
 		endcase
 	end
-
+	
+	assign cache_wr_ack = 1'b1;
+	assign mem_rd_en = (mem_state == `MEM_LOAD) || (mem_state == `MEM_WAIT_RD) || (mem_state == `MEM_SEND_RD);
+	assign mem_rd_addr = frag_id;
 	assign mem_wr_en = evicting_bank;
 	assign mem_wr_addr = {selected_tag, evict_wr_addr, 1'b0};
 endmodule

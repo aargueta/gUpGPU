@@ -8,8 +8,9 @@ module main_mem_sm(
 	clk,
 	rst,
 	read_stall,
-	curr_bank_dirty,
+	evict_bank_dirty,
 	cache_wr_en,
+	cache_wr_done,
 	mem_wr_ack,
 	mem_state,
 	evict_rd_addr,
@@ -19,8 +20,9 @@ module main_mem_sm(
 	input clk;
 	input rst;
 	input read_stall;
-	input curr_bank_dirty;
+	input evict_bank_dirty;
 	input cache_wr_en;
+	input cache_wr_done;
 	input mem_wr_ack;
 	output reg [2:0] mem_state;
 	output [8:0] evict_rd_addr;
@@ -31,10 +33,13 @@ module main_mem_sm(
 	always @(posedge clk)begin
 		if(rst || ((mem_state != `MEM_LOAD) && (mem_state != `MEM_WRITE)) || cache_xfr_done)
 			{cache_xfr_done, cache_xfr_state} <= 9'd0;
-		else if(mem_state == `MEM_LOAD)
-			{cache_xfr_done, cache_xfr_state} <= cache_xfr_state + cache_wr_en;
-		else if(mem_state == `MEM_WRITE)
-			{cache_xfr_done, cache_xfr_state} <= cache_xfr_state + mem_wr_ack;
+		else if(mem_state == `MEM_LOAD)begin
+			cache_xfr_state <= cache_xfr_state + cache_wr_en;
+			cache_xfr_done <= cache_wr_done;
+		end else if(mem_state == `MEM_WRITE)begin
+			cache_xfr_state <= cache_xfr_state + mem_wr_ack;
+			cache_xfr_done <= (cache_xfr_state == 8'h1FF);
+		end
 		{evict_wr_done, evict_wr_addr} <= {cache_xfr_done, cache_xfr_state};
 	end
 
@@ -47,7 +52,7 @@ module main_mem_sm(
 			case(mem_state)
 				`MEM_IDLE: 
 					if(read_stall)
-						mem_state <= curr_bank_dirty? `MEM_WRITE : `MEM_SEND_RD;
+						mem_state <= evict_bank_dirty? `MEM_WRITE : `MEM_SEND_RD;
 					else
 						mem_state <= `MEM_IDLE;
 				`MEM_SEND_RD:
